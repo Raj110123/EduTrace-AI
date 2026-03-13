@@ -25,8 +25,11 @@ const extractAudio = async (url) => {
         const outputPath = path.join(tempDir, outputFileName);
 
         // Command to extract audio as mp3
-        // Added --no-check-certificate to bypass SSL issuer errors common on macOS/Python environments
-        const command = `yt-dlp --no-check-certificate -x --audio-format mp3 -o "${outputPath}" "${url}"`;
+        // --no-check-certificate: bypass SSL issuer errors
+        // --js-runtimes node: resolve "No supported JavaScript runtime" warning
+        // --force-ipv4: resolve "Connection refused" errors common on some networks
+        // --user-agent: mimic a modern browser to avoid blocks
+        const command = `yt-dlp --no-check-certificate --js-runtimes node --force-ipv4 --user-agent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" -x --audio-format mp3 -o "${outputPath}" "${url}"`;
 
         console.log(`Executing command: ${command}`);
         await execPromise(command);

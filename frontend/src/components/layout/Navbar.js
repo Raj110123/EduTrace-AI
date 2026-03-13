@@ -27,6 +27,7 @@ export default function Navbar() {
           <>
             <Link href="/dashboard" className={`nav-link ${pathname === '/dashboard' ? 'active' : ''}`}>Dashboard</Link>
             <Link href="/store" className={`nav-link ${pathname === '/store' ? 'active' : ''}`}>Store</Link>
+            <Link href="/test" className={`nav-link ${pathname === '/test' ? 'active' : ''}`}>Test</Link>
             {user.role === 'student' && (
               <Link href="/doubt-solver" className={`nav-link ${pathname === '/doubt-solver' ? 'active' : ''}`}>Doubt Solver</Link>
             )}

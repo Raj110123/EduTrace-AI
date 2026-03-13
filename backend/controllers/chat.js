@@ -47,7 +47,7 @@ exports.askQuestion = async (req, res) => {
         question,
         chat_history: chatHistory
       });
-    } catch(err) {
+    } catch (err) {
       return res.status(504).json({ success: false, error: 'AI_PROCESSING_TIMEOUT', message: err.message });
     }
 
@@ -89,7 +89,7 @@ exports.getChatHistory = async (req, res) => {
   try {
     const { videoId } = req.params;
     const sessions = await ChatSession.find({ videoId, userId: req.user.id }).sort({ updatedAt: -1 });
-    
+
     res.status(200).json({ success: true, sessions });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
