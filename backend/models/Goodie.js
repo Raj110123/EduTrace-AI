@@ -1,13 +1,6 @@
-import mongoose, { Schema, Document } from "mongoose";
+import mongoose from "mongoose";
 
-export interface IGoodie extends Document {
-    name: string;
-    imageUrl: string;
-    coins_required: number;
-    code: string;
-}
-
-const GoodieSchema: Schema<IGoodie> = new Schema(
+const GoodieSchema = new mongoose.Schema(
     {
         name: {
             type: String,
@@ -39,6 +32,6 @@ const GoodieSchema: Schema<IGoodie> = new Schema(
 );
 
 const GoodieModel =
-    mongoose.models.Goodie || mongoose.model<IGoodie>("Goodie", GoodieSchema);
+    mongoose.models.Goodie || mongoose.model("Goodie", GoodieSchema);
 
 export default GoodieModel;
