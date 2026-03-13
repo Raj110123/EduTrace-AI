@@ -1,0 +1,1 @@
+/* Extends globals.css for specific component modules if needed, but we can put Modal styles here to keep globals somewhat clean, or we can use modules. Let's append to globals to ensure they work globally due to the Next layout import strategy */
