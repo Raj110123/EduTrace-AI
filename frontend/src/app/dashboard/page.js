@@ -59,24 +59,26 @@ export default function Dashboard() {
       </div>
 
       <h2 style={{ marginBottom: '1.5rem', fontFamily: 'var(--font-display)' }}>Select Mode</h2>
-      
+
       <div className="grid-cards">
-        {/* Personal Mode */}
-        <Link href="/personal">
-          <div className="glass-card" style={{ height: '100%', display: 'flex', flexDirection: 'column', cursor: 'pointer', borderTop: '4px solid var(--accent-primary)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
-              <Video color="var(--accent-primary)" size={28} />
-              <h3 style={{ fontSize: '1.5rem' }}>Personal Mode</h3>
+        {/* Personal Mode - Only for Students */}
+        {user.role === 'student' && (
+          <Link href="/personal">
+            <div className="glass-card" style={{ height: '100%', display: 'flex', flexDirection: 'column', cursor: 'pointer', borderTop: '4px solid var(--accent-primary)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
+                <Video color="var(--accent-primary)" size={28} />
+                <h3 style={{ fontSize: '1.5rem' }}>Personal Mode</h3>
+              </div>
+              <p style={{ color: 'var(--text-secondary)', flex: 1 }}>
+                Self-paced learning. Paste any educational YouTube URL, instantly extract the transcript, and generate interactive quizzes and summaries.
+              </p>
+              <div style={{ marginTop: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span className="badge badge-blue">Self-Paced</span>
+                <span style={{ color: 'var(--accent-primary)', fontWeight: '500' }}>Start Learning &rarr;</span>
+              </div>
             </div>
-            <p style={{ color: 'var(--text-secondary)', flex: 1 }}>
-              Self-paced learning. Paste any educational YouTube URL, instantly extract the transcript, and generate interactive quizzes and summaries.
-            </p>
-            <div style={{ marginTop: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span className="badge badge-blue">Self-Paced</span>
-              <span style={{ color: 'var(--accent-primary)', fontWeight: '500' }}>Start Learning &rarr;</span>
-            </div>
-          </div>
-        </Link>
+          </Link>
+        )}
 
         {/* College Mode */}
         <Link href={user.role === 'instructor' ? '/college/instructor' : '/college/student'}>

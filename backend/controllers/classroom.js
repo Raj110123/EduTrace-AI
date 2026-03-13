@@ -12,7 +12,7 @@ const n8nService = require('../services/n8nService');
 exports.createClassroom = async (req, res) => {
   try {
     const { name, description } = req.body;
-    
+
     let classCode = generateClassCode();
     let isUnique = false;
     while (!isUnique) {
@@ -52,8 +52,14 @@ exports.getInstructorClasses = async (req, res) => {
 exports.joinClassroom = async (req, res) => {
   try {
     const { classCode } = req.body;
+
+    // Check if user is a student
+    if (req.user.role !== 'student') {
+      return res.status(403).json({ success: false, message: 'Only students can join classrooms.' });
+    }
+
     let classroom = await Classroom.findOne({ classCode });
-    
+
     if (!classroom) {
       return res.status(404).json({ success: false, error: 'INVALID_CLASS_CODE', message: 'No classroom found with this code.' });
     }
@@ -64,6 +70,14 @@ exports.joinClassroom = async (req, res) => {
 
     classroom.students.push(req.user.id);
     await classroom.save();
+
+    // Populate for the frontend
+    await classroom.populate('instructorId', 'name');
+    await classroom.populate({
+      path: 'quizzes',
+      match: { isPublished: true },
+      select: '-mcqs.correctAnswer -mcqs.explanation -shortAnswerQuestions.expectedAnswer'
+    });
 
     res.status(200).json({ success: true, classroom });
   } catch (error) {
@@ -80,7 +94,7 @@ exports.getClassroomById = async (req, res) => {
       .populate('students', 'name email avatar')
       .populate('videos')
       .populate('quizzes');
-      
+
     if (!classroom) return res.status(404).json({ success: false, message: 'Classroom not found' });
     res.status(200).json({ success: true, classroom });
   } catch (error) {
@@ -163,7 +177,7 @@ exports.generateClassroomQuiz = async (req, res) => {
         num_saqs: numSAQs,
         difficulty
       });
-    } catch(err) {
+    } catch (err) {
       return res.status(504).json({ success: false, error: 'AI_PROCESSING_TIMEOUT', message: err.message });
     }
 
@@ -213,7 +227,7 @@ exports.publishQuiz = async (req, res) => {
     quiz.isPublished = true;
     quiz.publishedAt = new Date();
     if (timeLimit) quiz.timeLimit = timeLimit;
-    
+
     await quiz.save();
     res.status(200).json({ success: true, quiz });
   } catch (error) {
@@ -227,6 +241,7 @@ exports.publishQuiz = async (req, res) => {
 exports.getStudentClasses = async (req, res) => {
   try {
     const classrooms = await Classroom.find({ students: req.user.id })
+      .populate('instructorId', 'name')
       .populate({
         path: 'quizzes',
         match: { isPublished: true },
