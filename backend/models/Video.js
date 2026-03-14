@@ -34,6 +34,17 @@ const videoSchema = new mongoose.Schema({
     keyTerms: [
       { term: String, definition: String }
     ],
+    summaryCitation: {
+      file: String,
+      section: String,
+      evidence: String
+    },
+    doubts: { type: String },
+    doubtsCitation: {
+      file: String,
+      section: String,
+      evidence: String
+    },
     generatedAt: { type: Date }
   }
 }, { timestamps: true });

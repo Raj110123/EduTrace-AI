@@ -47,3 +47,49 @@ exports.resolveDoubt = async (webhookPayload) => {
     throw new Error('AI_PROCESSING_TIMEOUT');
   }
 };
+/**
+ * Sends a session_id, imagekit_url, and mode to n8n to generate summary or doubt solving
+ */
+exports.generateSummaryAndDoubts = async (sessionId, imageUrl, mode = 'summary', question = null) => {
+  const payload = {
+    session_id: sessionId,
+    imagekit_url: imageUrl,
+    mode: mode
+  };
+
+  if (question) {
+    payload.question = question;
+  }
+
+  const maxRetries = 2;
+  let lastError;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      if (attempt > 0) {
+        console.log(`[SummaryAndDoubts] Retry attempt ${attempt} for mode: ${mode}...`);
+        await new Promise(resolve => setTimeout(resolve, 2000)); // wait 2s between retries
+      }
+
+      const response = await axios.post('https://nikunjn8n.up.railway.app/webhook/summary-doubts', payload, {
+        timeout: 300000, // 5 minutes
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      return response.data;
+    } catch (error) {
+      lastError = error;
+      console.warn(`[SummaryAndDoubts] Attempt ${attempt} failed for mode ${mode}: ${error.message}`);
+      
+      if (error.response && error.response.status < 500) break;
+    }
+  }
+
+  if (lastError.code === 'ECONNABORTED' || lastError.message.includes('timeout')) {
+    console.error(`Error: n8n request timed out for mode ${mode} after multiple attempts.`);
+  } else {
+    console.error(`Error in n8nService generateSummaryAndDoubts (${mode}):`, lastError.message);
+  }
+  throw new Error('AI_PROCESSING_TIMEOUT');
+};

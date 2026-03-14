@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
 import { Video, History, Play } from 'lucide-react';
+import TranscriptPanel from '@/components/video/TranscriptPanel';
 
 export default function PersonalModeHome() {
   const [url, setUrl] = useState('');
@@ -79,6 +80,55 @@ export default function PersonalModeHome() {
     }
   };
 
+  // Helper to extract segments for TranscriptPanel
+  const getTranscriptSegments = () => {
+    if (!transcriptData) return [];
+    
+    // If we already have segments (from basic fetch or already parsed)
+    if (transcriptData.segments && transcriptData.segments.length > 0) return transcriptData.segments;
+    
+    // Try to parse timestampedTranscript if it's a string from n8n
+    const rawText = typeof transcriptData === 'string' ? transcriptData : (transcriptData.timestampedTranscript || transcriptData.raw || "");
+    
+    if (!rawText) return [{ startTime: 0, text: "No transcript content available." }];
+
+    // Regex to match [MM:SS] or [HH:MM:SS] or simply seconds
+    const timestampRegex = /\[(\d{1,2}:)?\d{1,2}:\d{2}\]|(\d+\.\d+)/g;
+    const lines = rawText.split('\n');
+    const parsedSegments = [];
+
+    lines.forEach(line => {
+      const match = line.match(/\[((\d{1,2}:)?\d{1,2}:\d{2})\]/);
+      if (match) {
+        const timeStr = match[1];
+        const text = line.replace(match[0], '').trim();
+        
+        // Convert timeStr (MM:SS or HH:MM:SS) to seconds
+        const parts = timeStr.split(':').map(Number);
+        let seconds = 0;
+        if (parts.length === 3) {
+          seconds = parts[0] * 3600 + parts[1] * 60 + parts[2];
+        } else if (parts.length === 2) {
+          seconds = parts[0] * 60 + parts[1];
+        }
+        
+        parsedSegments.push({ startTime: seconds, text });
+      } else if (line.trim()) {
+        // Line without timestamp, attach to last or start at 0
+        if (parsedSegments.length > 0) {
+          parsedSegments[parsedSegments.length - 1].text += ' ' + line.trim();
+        } else {
+          parsedSegments.push({ startTime: 0, text: line.trim() });
+        }
+      }
+    });
+
+    if (parsedSegments.length > 0) return parsedSegments;
+    
+    // Fallback: single segment
+    return [{ startTime: 0, text: rawText }];
+  };
+
   return (
     <div className="animate-fade-in" style={{ maxWidth: '800px', margin: '0 auto', paddingBottom: '4rem' }}>
       <div className="page-header" style={{ textAlign: 'center' }}>
@@ -117,21 +167,15 @@ export default function PersonalModeHome() {
           </form>
         ) : (
           <div className="animate-fade-in">
-            <div className="badge badge-green" style={{ marginBottom: '1rem' }}>✅ Transcription Complete</div>
-            <h3 style={{ marginBottom: '1rem' }}>Transcript Preview</h3>
-            <div style={{
-              background: 'var(--bg-tertiary)',
-              padding: '1.5rem',
-              borderRadius: 'var(--radius-md)',
-              maxHeight: '300px',
-              overflowY: 'auto',
-              fontSize: '0.9rem',
-              lineHeight: '1.6',
-              color: 'var(--text-secondary)',
-              border: '1px solid var(--border-color)',
-              marginBottom: '2rem'
-            }}>
-              {typeof transcriptData === 'string' ? transcriptData : (transcriptData.raw || JSON.stringify(transcriptData, null, 2))}
+            <div className="badge badge-green" style={{ marginBottom: '1.5rem' }}>✅ Transcription Complete</div>
+            
+            <div style={{ marginBottom: '2rem' }}>
+              <TranscriptPanel 
+                segments={getTranscriptSegments()} 
+                activeTime={0}
+                onTimestampClick={() => {}} // No behavior needed in preview
+                loading={false}
+              />
             </div>
 
             <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>

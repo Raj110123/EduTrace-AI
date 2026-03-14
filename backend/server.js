@@ -35,6 +35,9 @@ app.use('/api/test', require('./routes/test'));
 
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
+
+// Increase server timeout to 10 minutes for heavy AI processing
+server.timeout = 600000;

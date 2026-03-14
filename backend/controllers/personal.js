@@ -1,5 +1,5 @@
 const Video = require('../models/Video');
-const { fetchTranscript } = require('../services/transcriptService');
+const { fetchTranscript, parseTranscriptSegments } = require('../services/transcriptService');
 const n8nService = require('../services/n8nService');
 const Quiz = require('../models/Quiz');
 const QuizAttempt = require('../models/QuizAttempt');
@@ -62,7 +62,19 @@ exports.submitVideo = async (req, res) => {
     // If transcript is provided in body (from advanced pipeline), use it
     if (transcript) {
       console.log('Using pre-extracted transcript from request body');
-      transcriptData = typeof transcript === 'string' ? { raw: transcript, segments: [] } : transcript;
+      
+      if (typeof transcript === 'string') {
+        transcriptData = {
+          raw: transcript,
+          segments: parseTranscriptSegments(transcript)
+        };
+      } else {
+        transcriptData = transcript;
+        // If segments are missing but we have raw text, parse it
+        if ((!transcriptData.segments || transcriptData.segments.length === 0) && (transcriptData.raw || transcriptData.timestampedTranscript)) {
+          transcriptData.segments = parseTranscriptSegments(transcriptData.raw || transcriptData.timestampedTranscript);
+        }
+      }
 
       // Helper to get videoId if not present
       if (!transcriptData.videoId) {
@@ -208,37 +220,61 @@ exports.generateQuiz = async (req, res) => {
   }
 };
 
-exports.generateSummary = async (req, res) => {
+exports.generateSummaryAndDoubts = async (req, res) => {
   try {
-    const { videoId } = req.body;
+    const { videoId, mode = 'summary' } = req.body;
     const video = await Video.findById(videoId);
     if (!video) return res.status(404).json({ success: false, message: 'Video not found' });
 
+    if (!video.audioUrl) {
+      return res.status(400).json({ success: false, message: 'Audio URL (ImageKit) not found for this video. Please upload/transcribe again.' });
+    }
+
     let n8nResponse;
     try {
-      n8nResponse = await n8nService.generateSummary({
-        transcript: video.transcript.raw,
-        video_id: video._id.toString(),
-        video_title: video.title
-      });
+      // Use the video ID as session_id and audioUrl as imagekit_url, and pass provided mode
+      n8nResponse = await n8nService.generateSummaryAndDoubts(
+        video._id.toString(),
+        video.audioUrl,
+        mode
+      );
     } catch (err) {
-      return res.status(504).json({ success: false, error: 'AI_PROCESSING_TIMEOUT', message: err.message });
+      console.error(`[SummaryAndDoubts] mode: ${mode} n8n error:`, err.message);
+      const isTimeout = err.message === 'AI_PROCESSING_TIMEOUT';
+      return res.status(isTimeout ? 504 : 502).json({ 
+        success: false, 
+        error: isTimeout ? 'AI_PROCESSING_TIMEOUT' : 'AI_PROCESSING_ERROR', 
+        message: isTimeout ? 'The AI service is taking longer than expected.' : `AI service error: ${err.message}`
+      });
     }
 
     if (n8nResponse) {
-      // Map n8n response to Video.summary schema
-      video.summary = {
-        shortSummary: n8nResponse.shortSummary || n8nResponse.summary?.shortSummary || n8nResponse.summary || '',
-        detailedSummary: n8nResponse.detailedSummary || n8nResponse.summary?.detailedSummary || '',
-        keyTopics: n8nResponse.keyTopics || n8nResponse.summary?.keyTopics || [],
-        keyTerms: n8nResponse.keyTerms || n8nResponse.summary?.keyTerms || [],
-        generatedAt: new Date()
-      };
+      // n8n often returns an array or an object with an 'output' field
+      let data = Array.isArray(n8nResponse) ? n8nResponse[0] : n8nResponse;
+      
+      // If data has an 'output' property (very common in n8n AI nodes), unwrap it
+      if (data && data.output) {
+        data = data.output;
+      }
+
+      // Initialize summary if not exists
+      if (!video.summary) video.summary = { generatedAt: new Date() };
+
+      if (mode === 'summary') {
+        video.summary.shortSummary = data.summary || data.output?.summary || '';
+        video.summary.summaryCitation = data.citation || data.summary_citation || data.output?.citation || null;
+      } else if (mode === 'doubt') {
+        video.summary.doubts = data.doubts || data.output?.doubts || '';
+        video.summary.doubtsCitation = data.citation || data.doubts_citation || data.output?.citation || null;
+      }
+
+      video.summary.generatedAt = new Date();
       await video.save();
     }
 
     res.status(200).json({ success: true, summary: video.summary });
   } catch (error) {
+    console.error('[SummaryAndDoubts] Controller Error:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 };

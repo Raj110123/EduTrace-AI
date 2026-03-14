@@ -89,6 +89,20 @@ export default function VideoAnalysisPage() {
     }
   };
 
+  const handleGenerateSummary = async (mode = 'summary') => {
+    setSummaryLoading(true);
+    try {
+      const res = await api.post('/personal/generate-summary', { videoId, mode });
+      if (res.data.success) {
+        setVideo({ ...video, summary: res.data.summary });
+      }
+    } catch (err) {
+      console.error(`Error generating ${mode}:`, err);
+    } finally {
+      setSummaryLoading(false);
+    }
+  };
+
   if (loading || !video) return <div style={{ textAlign: 'center', marginTop: '4rem' }}>Loading video data...</div>;
 
   return (
@@ -115,22 +129,14 @@ export default function VideoAnalysisPage() {
             <SummaryTab 
               video={video} 
               loading={summaryLoading} 
-              onGenerate={async () => {
-                setSummaryLoading(true);
-                try {
-                  const res = await api.post('/personal/generate-summary', { videoId });
-                  if (res.data.success) {
-                    setVideo({ ...video, summary: res.data.summary });
-                  }
-                } catch (err) {
-                  console.error(err);
-                } finally {
-                  setSummaryLoading(false);
-                }
-              }} 
+              onGenerate={handleGenerateSummary} 
             />
           )}
-          {activeTab === 'chat' && <div className="glass-panel" style={{ padding: '0.5rem' }}><ChatInterface videoId={videoId} /></div>}
+          {activeTab === 'chat' && (
+            <div className="glass-panel" style={{ padding: '0.5rem' }}>
+              <ChatInterface videoId={videoId} />
+            </div>
+          )}
         </div>
       </div>
       
@@ -260,57 +266,146 @@ function QuizGeneratorTab({ videoId, quizzes, onQuizGenerated }) {
 function SummaryTab({ video, loading, onGenerate }) {
   const summary = video?.summary;
 
-  if (!summary || !summary.shortSummary) {
-    return (
-      <div className="glass-card" style={{ textAlign: 'center', padding: '3rem 1.5rem' }}>
-        <div style={{ background: 'rgba(99, 102, 241, 0.1)', color: 'var(--accent-primary)', width: '64px', height: '64px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem' }}>
-          <Sparkles size={32} />
-        </div>
-        <h3 style={{ fontSize: '1.5rem', marginBottom: '1rem' }}>AI Summary</h3>
-        <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem', maxWidth: '400px', margin: '0 auto 2rem' }}>
-          Get a high-level overview and key takeaways from this video.
+  const renderFormattedText = (text) => {
+    if (!text) return null;
+    
+    // Split by double newlines for paragraphs
+    return text.split('\n\n').map((para, i) => {
+      // Check if it's a list
+      if (para.includes('\n- ') || para.startsWith('- ')) {
+        const lines = para.split('\n');
+        const listItems = lines.filter(line => line.trim().startsWith('- '));
+        const intro = lines.find(line => !line.trim().startsWith('- '));
+
+        return (
+          <div key={i} style={{ marginBottom: '1.25rem' }}>
+            {intro && <p style={{ marginBottom: '0.75rem', fontWeight: '500' }}>{intro}</p>}
+            <ul style={{ paddingLeft: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              {listItems.map((item, j) => {
+                const cleaned = item.trim().substring(2);
+                // Handle **bold** text
+                const parts = cleaned.split(/(\*\*.*?\*\*)/g);
+                return (
+                  <li key={j} style={{ color: 'var(--text-primary)', lineHeight: '1.5' }}>
+                    {parts.map((part, k) => {
+                      if (part.startsWith('**') && part.endsWith('**')) {
+                        return <strong key={k} style={{ color: 'var(--accent-primary)' }}>{part.slice(2, -2)}</strong>;
+                      }
+                      return part;
+                    })}
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        );
+      }
+
+      // Regular paragraph with bolding
+      const parts = para.split(/(\*\*.*?\*\*)/g);
+      return (
+        <p key={i} style={{ marginBottom: '1.25rem', lineHeight: '1.7', color: 'var(--text-primary)' }}>
+          {parts.map((part, j) => {
+            if (part.startsWith('**') && part.endsWith('**')) {
+              return <strong key={j} style={{ color: 'var(--accent-primary)' }}>{part.slice(2, -2)}</strong>;
+            }
+            return part;
+          })}
         </p>
-        <button onClick={onGenerate} className="btn btn-primary" disabled={loading} style={{ padding: '0.75rem 2rem', fontSize: '1.1rem' }}>
-          {loading ? 'Generating Summary...' : 'Generate Summary'}
+      );
+    });
+  };
+
+  if (!summary || (!summary.shortSummary && !summary.doubts)) {
+    return (
+      <div className="glass-card" style={{ textAlign: 'center', padding: '4rem 2rem', position: 'relative', overflow: 'hidden' }}>
+        <div style={{ position: 'absolute', top: '-20px', right: '-20px', width: '150px', height: '150px', background: 'var(--accent-gradient)', opacity: 0.05, borderRadius: '50%', filter: 'blur(40px)' }}></div>
+        <div style={{ background: 'rgba(99, 102, 241, 0.1)', color: 'var(--accent-primary)', width: '80px', height: '80px', borderRadius: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 2rem', transform: 'rotate(-5deg)', boxShadow: '0 8px 16px rgba(0,0,0,0.2)' }}>
+          <Sparkles size={40} />
+        </div>
+        <h3 style={{ fontSize: '1.8rem', fontWeight: '800', marginBottom: '1rem', background: 'var(--accent-gradient)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>AI Intelligence Hub</h3>
+        <p style={{ color: 'var(--text-secondary)', marginBottom: '2.5rem', maxWidth: '450px', margin: '0 auto 2.5rem', fontSize: '1.1rem', lineHeight: '1.6' }}>
+          Deeply analyze this video's content. We'll extract core concepts, provide evidence-based summaries, and resolve potential doubts.
+        </p>
+        <button 
+          onClick={() => onGenerate('summary')} 
+          className="btn btn-primary" 
+          disabled={loading} 
+          style={{ padding: '1rem 3rem', fontSize: '1.1rem', borderRadius: 'var(--radius-lg)', boxShadow: '0 10px 20px -5px rgba(99, 102, 241, 0.4)' }}
+        >
+          {loading ? (
+            <>
+              <div className="spinner" style={{ width: '20px', height: '20px', border: '3px solid rgba(255,255,255,0.3)', borderTopColor: 'white', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
+              Analyzing Content...
+            </>
+          ) : 'Unlock AI Analysis'}
         </button>
+        <style jsx>{`
+          @keyframes spin { to { transform: rotate(360deg); } }
+        `}</style>
       </div>
     );
   }
 
   return (
-    <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-      <div className="glass-panel" style={{ padding: '1.5rem' }}>
-        <h3 style={{ fontSize: '1.1rem', marginBottom: '1rem', color: 'var(--accent-primary)' }}>Overview</h3>
-        <p style={{ lineHeight: '1.7', color: 'var(--text-primary)' }}>{summary.shortSummary}</p>
-        
-        {summary.detailedSummary && (
-          <div style={{ marginTop: '1.5rem' }}>
-            <h3 style={{ fontSize: '1rem', marginBottom: '0.75rem', color: 'var(--accent-secondary)' }}>Key Details</h3>
-            <p style={{ fontSize: '0.95rem', color: 'var(--text-secondary)', lineHeight: '1.6' }}>{summary.detailedSummary}</p>
+    <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+      {/* Summary Section */}
+      {summary.shortSummary && (
+        <div className="glass-panel" style={{ padding: '2rem', position: 'relative', overflow: 'hidden' }}>
+          <div style={{ position: 'absolute', top: 0, left: 0, width: '4px', height: '100%', background: 'var(--accent-gradient)' }}></div>
+          
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+            <h3 style={{ fontSize: '1.25rem', fontWeight: '700', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <div style={{ padding: '0.5rem', background: 'rgba(99, 102, 241, 0.1)', borderRadius: '10px', color: 'var(--accent-primary)' }}>
+                <FileText size={20} />
+              </div>
+              Executive Summary
+            </h3>
+            <span className="badge badge-blue">AI Generated</span>
           </div>
-        )}
-      </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
-        <div className="glass-panel" style={{ padding: '1.5rem' }}>
-          <h4 style={{ fontSize: '0.9rem', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '1rem' }}>Main Topics</h4>
-          <ul style={{ paddingLeft: '1.25rem', color: 'var(--text-primary)' }}>
-            {(summary.keyTopics || []).map((topic, i) => <li key={i} style={{ marginBottom: '0.5rem' }}>{topic}</li>)}
-          </ul>
-        </div>
-        <div className="glass-panel" style={{ padding: '1.5rem' }}>
-          <h4 style={{ fontSize: '0.9rem', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '1rem' }}>Key Terms</h4>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-            {(summary.keyTerms || []).map((term, i) => (
-              <span key={i} className="badge" style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border-color)' }}>{term}</span>
-            ))}
+          <div className="summary-content">
+            {renderFormattedText(summary.shortSummary)}
           </div>
+          
+          {summary.summaryCitation && (
+            <div style={{ 
+              marginTop: '2rem', 
+              padding: '1.25rem', 
+              background: 'rgba(255, 255, 255, 0.03)', 
+              borderRadius: 'var(--radius-lg)', 
+              border: '1px solid var(--border-color)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '0.75rem'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.75rem', fontWeight: '800', textTransform: 'uppercase', color: 'var(--accent-primary)', opacity: 0.8 }}>
+                <Sparkles size={12} />
+                Evidence-Based Grounding
+              </div>
+              <p style={{ fontSize: '0.95rem', fontStyle: 'italic', color: 'var(--text-secondary)', lineHeight: '1.5', borderLeft: '2px solid var(--accent-primary)', paddingLeft: '1rem' }}>
+                "{summary.summaryCitation.evidence}"
+              </p>
+              <div style={{ display: 'flex', gap: '1rem', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                <span><strong>File:</strong> {summary.summaryCitation.file}</span>
+                <span>•</span>
+                <span><strong>Section:</strong> {summary.summaryCitation.section}</span>
+              </div>
+            </div>
+          )}
         </div>
-      </div>
-      
-      <div style={{ textAlign: 'center', marginTop: '1rem' }}>
-        <button onClick={onGenerate} className="btn btn-secondary" disabled={loading} style={{ fontSize: '0.85rem' }}>
-          {loading ? 'Regenerating...' : 'Regenerate Summary'}
+      )}
+
+      {/* Bottom Actions */}
+      <div style={{ display: 'flex', justifyContent: 'center', marginTop: '1rem' }}>
+        <button 
+          onClick={() => onGenerate('summary')} 
+          className="btn btn-secondary" 
+          disabled={loading}
+          style={{ padding: '0.6rem 1.5rem', borderRadius: 'var(--radius-full)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+        >
+          <Sparkles size={16} />
+          {loading ? 'Refreshing...' : 'Regenerate Summary'}
         </button>
       </div>
     </div>

@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 import api from '@/lib/api';
-import { Youtube, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Youtube, Loader2, AlertCircle, CheckCircle2, Trophy, Coins, XCircle, Info, ChevronDown, ChevronUp, History, PlayCircle } from 'lucide-react';
+import { useCoins } from '@/context/CoinsContext';
 
 export default function TestPage() {
     const [youtubeUrl, setYoutubeUrl] = useState('');
@@ -13,6 +14,10 @@ export default function TestPage() {
     const [audioUrl, setAudioUrl] = useState('');
     const [questions, setQuestions] = useState([]);
     const [selectedAnswers, setSelectedAnswers] = useState({});
+    const [showResults, setShowResults] = useState(false);
+    const [score, setScore] = useState(0);
+    const [expandedCitations, setExpandedCitations] = useState({});
+    const { updateCoins, coins: currentTotalCoins } = useCoins();
 
     const handleTranscribe = async (e) => {
         e.preventDefault();
@@ -83,6 +88,182 @@ export default function TestPage() {
             [questionIndex]: option
         });
     };
+
+    const toggleCitation = (index) => {
+        setExpandedCitations(prev => ({
+            ...prev,
+            [index]: !prev[index]
+        }));
+    };
+
+    const handleCompleteQuiz = async () => {
+        let correctCount = 0;
+        const total = questions.length;
+
+        questions.forEach((q, idx) => {
+            const correctAnswer = q.answer || q.Answer || q.correct_answer || q.correctOption;
+            if (selectedAnswers[idx] === correctAnswer) {
+                correctCount++;
+            }
+        });
+
+        const earnedCoins = correctCount * 10;
+        setScore(correctCount);
+        setShowResults(true);
+
+        // Update global coins state (UI only for now)
+        updateCoins(currentTotalCoins + earnedCoins);
+    };
+
+    if (showResults) {
+        return (
+            <div className="animate-fade-in" style={{ maxWidth: '800px', margin: '0 auto', paddingBottom: '4rem' }}>
+                <div className="glass-card" style={{ padding: '3rem 2rem', textAlign: 'center', marginBottom: '2rem', background: 'var(--accent-gradient)', color: 'white' }}>
+                    <div style={{ background: 'rgba(255,255,255,0.2)', width: '80px', height: '80px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem', boxShadow: '0 8px 32px rgba(0,0,0,0.1)' }}>
+                        <Trophy size={40} />
+                    </div>
+                    <h1 style={{ fontSize: '2.5rem', fontWeight: '800', marginBottom: '0.5rem' }}>Assessment Results</h1>
+                    <p style={{ fontSize: '1.2rem', opacity: 0.9 }}>Great job! You've completed the knowledge check.</p>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '2.5rem' }}>
+                    <div className="glass-card" style={{ padding: '1.5rem', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                        <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: '600', letterSpacing: '1px', marginBottom: '0.5rem' }}>Your Score</span>
+                        <div style={{ fontSize: '3rem', fontWeight: '800', color: 'var(--accent-primary)' }}>
+                            {score} <span style={{ fontSize: '1.2rem', color: 'var(--text-muted)' }}>/ {questions.length}</span>
+                        </div>
+                        <div style={{ marginTop: '0.5rem', fontWeight: '600', color: score / questions.length >= 0.7 ? 'var(--success)' : 'var(--accent-secondary)' }}>
+                            {Math.round((score / questions.length) * 100)}% Accuracy
+                        </div>
+                    </div>
+                    <div className="glass-card" style={{ padding: '1.5rem', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                        <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: '600', letterSpacing: '1px', marginBottom: '0.5rem' }}>Coins Earned</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                            <Coins size={32} color="#f59e0b" />
+                            <div style={{ fontSize: '3rem', fontWeight: '800', color: '#f59e0b' }}>+{score * 10}</div>
+                        </div>
+                        <div style={{ marginTop: '0.5rem', fontSize: '0.9rem', color: 'var(--text-muted)' }}>
+                            Already {currentTotalCoins + (score * 10)} total coins in wallet
+                        </div>
+                    </div>
+                </div>
+
+                <div style={{ marginBottom: '2rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
+                        <History size={22} color="var(--accent-primary)" />
+                        <h2 style={{ fontSize: '1.5rem', fontWeight: '700' }}>Question Review</h2>
+                    </div>
+
+                    {questions.map((q, idx) => {
+                        const correctAnswer = q.answer || q.Answer || q.correct_answer || q.correctOption;
+                        const isCorrect = selectedAnswers[idx] === correctAnswer;
+                        const citation = q.citation || q.Citation;
+
+                        return (
+                            <div key={idx} className="glass-card" style={{ padding: '2rem', marginBottom: '1.5rem', borderLeft: `6px solid ${isCorrect ? 'var(--success)' : 'var(--error)'}` }}>
+                                <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem' }}>
+                                    <div style={{
+                                        background: isCorrect ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                                        color: isCorrect ? 'var(--success)' : 'var(--error)',
+                                        width: '28px',
+                                        height: '28px',
+                                        borderRadius: '50%',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        flexShrink: 0
+                                    }}>
+                                        {isCorrect ? <CheckCircle2 size={18} /> : <XCircle size={18} />}
+                                    </div>
+                                    <h3 style={{ fontSize: '1.15rem', fontWeight: '600', lineHeight: '1.4' }}>
+                                        {q.question || q.text}
+                                    </h3>
+                                </div>
+
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
+                                    <div style={{ padding: '1rem', borderRadius: 'var(--radius-md)', background: isCorrect ? 'rgba(16, 185, 129, 0.05)' : 'rgba(239, 68, 68, 0.05)', border: `1px solid ${isCorrect ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)'}` }}>
+                                        <p style={{ fontSize: '0.8rem', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '0.4rem', fontWeight: '600' }}>Your Answer</p>
+                                        <p style={{ color: isCorrect ? 'var(--success)' : 'var(--error)', fontWeight: '500' }}>{selectedAnswers[idx] || 'No answer selected'}</p>
+                                    </div>
+                                    <div style={{ padding: '1rem', borderRadius: 'var(--radius-md)', background: 'rgba(99, 102, 241, 0.05)', border: '1px solid rgba(99, 102, 241, 0.2)' }}>
+                                        <p style={{ fontSize: '0.8rem', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '0.4rem', fontWeight: '600' }}>Correct Answer</p>
+                                        <p style={{ color: 'var(--accent-primary)', fontWeight: '500' }}>{correctAnswer}</p>
+                                    </div>
+                                </div>
+
+                                {citation && (
+                                    <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '1.25rem', marginTop: '1rem' }}>
+                                        <button
+                                            onClick={() => toggleCitation(idx)}
+                                            style={{
+                                                background: 'none',
+                                                border: 'none',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '0.5rem',
+                                                color: 'var(--accent-primary)',
+                                                fontWeight: '600',
+                                                cursor: 'pointer',
+                                                fontSize: '0.95rem',
+                                                padding: 0
+                                            }}
+                                        >
+                                            <Info size={16} />
+                                            {expandedCitations[idx] ? 'Hide Citation' : 'View AI Explanation & Citation'}
+                                            {expandedCitations[idx] ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                                        </button>
+
+                                        {expandedCitations[idx] && (
+                                            <div className="animate-fade-in" style={{ marginTop: '1rem', padding: '1.25rem', borderRadius: 'var(--radius-md)', background: 'var(--bg-tertiary)', border: '1px solid var(--border-color)' }}>
+                                                <p style={{ fontSize: '0.95rem', color: 'var(--text-primary)', lineHeight: '1.6', marginBottom: '1rem' }}>
+                                                    {q.explanation || "The transcript discusses this topic to provide evidence for the correct answer."}
+                                                </p>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                        <span style={{ fontSize: '0.8rem', fontWeight: '700', color: 'var(--accent-secondary)', background: 'rgba(236, 72, 153, 0.1)', padding: '0.2rem 0.6rem', borderRadius: '4px' }}>
+                                                            SECTION: {citation.section || citation.timestamp || 'N/A'}
+                                                        </span>
+                                                    </div>
+                                                    <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', fontStyle: 'italic', borderLeft: '3px solid var(--accent-secondary)', paddingLeft: '1rem' }}>
+                                                        "{citation.evidence || "Evidence from the transcript confirms the validity of the selected answer."}"
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })}
+                </div>
+
+                <div style={{ textAlign: 'center', display: 'flex', gap: '1.5rem', justifyContent: 'center' }}>
+                    <button
+                        className="btn btn-secondary"
+                        onClick={() => {
+                            setShowResults(false);
+                            setQuestions([]);
+                            setYoutubeUrl('');
+                            setSelectedAnswers({});
+                        }}
+                        style={{ padding: '1rem 2rem', fontSize: '1rem' }}
+                    >
+                        Try Another Video
+                    </button>
+                    <button
+                        className="btn btn-primary"
+                        onClick={() => {
+                            setShowResults(false);
+                            setSelectedAnswers({});
+                        }}
+                        style={{ padding: '1rem 3rem', fontSize: '1.1rem' }}
+                    >
+                        Retake Test
+                    </button>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="animate-fade-in" style={{ maxWidth: '800px', margin: '0 auto', paddingBottom: '4rem' }}>
@@ -273,14 +454,7 @@ export default function TestPage() {
                     <div style={{ textAlign: 'center', marginTop: '4rem', paddingBottom: '2rem' }}>
                         <button
                             className="btn btn-primary"
-                            onClick={() => {
-                                const results = questions.map((q, idx) => ({
-                                    question: q.question || q.text,
-                                    selected: selectedAnswers[idx]
-                                }));
-                                console.log('Quiz Results:', results);
-                                alert('Quiz submitted! Check the console for your answers.');
-                            }}
+                            onClick={handleCompleteQuiz}
                             style={{ padding: '1.25rem 4rem', fontSize: '1.2rem', borderRadius: 'var(--radius-lg)' }}
                             disabled={Object.keys(selectedAnswers).length < questions.length}
                         >

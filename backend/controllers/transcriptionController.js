@@ -59,9 +59,11 @@ exports.generateAdvancedTranscript = async (req, res) => {
         localAudioPath = null;
 
         // 5. Return the transcript to the client
+        const transcript = Array.isArray(n8nResponse) ? n8nResponse[0] : n8nResponse;
+        
         res.status(200).json({
             success: true,
-            transcript: n8nResponse,
+            transcript: transcript,
             audioUrl: imageKitResponse.url,
             message: 'Advanced transcription via ImageKit pipeline completed successfully'
         });

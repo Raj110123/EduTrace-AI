@@ -7,35 +7,53 @@ const axios = require('axios');
  * @returns {Promise<Object>} - Transcript response from n8n
  */
 const sendAudioUrlToN8n = async (audioUrl, youtubeUrl) => {
-    try {
-        const WEBHOOK_URL = process.env.N8N_TRANSCRIPTION_WEBHOOK || 'https://nikunjn8n.up.railway.app/webhook/upload-yt';
+    const WEBHOOK_URL = process.env.N8N_TRANSCRIPTION_WEBHOOK || 'https://nikunjn8n.up.railway.app/webhook/upload-yt';
+    const maxRetries = 2;
+    let lastError;
 
-        console.log(`Sending audio URL to n8n: ${WEBHOOK_URL}`);
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        try {
+            if (attempt > 0) {
+                console.log(`[Transcription] Retry attempt ${attempt} for n8n...`);
+                await new Promise(resolve => setTimeout(resolve, 2000)); // wait 2s between retries
+            }
 
-        const response = await axios.post(WEBHOOK_URL, {
-            url: audioUrl,
-            audioUrl: audioUrl,
-            imagekit_url: audioUrl,
-            youtubeUrl: youtubeUrl,
-            timestamp: new Date().toISOString()
-        }, {
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            timeout: 300000 // 5 minutes timeout for transcription tasks
-        });
+            console.log(`Sending audio URL to n8n: ${WEBHOOK_URL} (Attempt ${attempt + 1})`);
 
-        if (response.data) {
-            return response.data;
-        } else {
-            throw new Error('No response data from n8n');
+            const response = await axios.post(WEBHOOK_URL, {
+                url: audioUrl,
+                audioUrl: audioUrl,
+                imagekit_url: audioUrl,
+                youtubeUrl: youtubeUrl,
+                timestamp: new Date().toISOString()
+            }, {
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                timeout: 300000 // 5 minutes timeout for transcription tasks
+            });
+
+            if (response.data) {
+                return response.data;
+            } else {
+                throw new Error('No response data from n8n');
+            }
+        } catch (error) {
+            lastError = error;
+            console.error(`Error in sendAudioUrlToN8n (Attempt ${attempt + 1}): ${error.message}`);
+            
+            // Only retry on network errors or 5xx server errors
+            if (error.response && error.response.status < 500) {
+                break; // Don't retry on 4xx errors
+            }
+            
+            if (attempt === maxRetries) {
+                if (error.response) {
+                    console.error('n8n error response:', error.response.data);
+                }
+                throw new Error(`n8n transcription failed after ${maxRetries + 1} attempts: ${error.message}`);
+            }
         }
-    } catch (error) {
-        console.error(`Error in sendAudioUrlToN8n: ${error.message}`);
-        if (error.response) {
-            console.error('n8n error response:', error.response.data);
-        }
-        throw new Error(`n8n transcription failed: ${error.message}`);
     }
 };
 

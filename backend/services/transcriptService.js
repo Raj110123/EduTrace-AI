@@ -47,6 +47,7 @@ const fetchTranscript = async (url) => {
     }
 
     console.log(`[TranscriptService] Fetching transcript for videoId: ${videoId}`);
+    // Using getTranscript instead of fetch which is undefined
     const transcriptList = await YouTubeTranscriptApi.getTranscript(videoId);
     
     if (!transcriptList || transcriptList.length === 0) {
@@ -83,12 +84,57 @@ const fetchTranscript = async (url) => {
       segments
     };
   } catch (error) {
-    console.error(`[TranscriptService] Error fetching transcript: ${error.message}`);
-    throw new Error(`Could not fetch video transcript: ${error.message}`);
+    console.error(`[TranscriptService] Error fetching transcript:`, error);
+    throw new Error(`Could not fetch video transcript: ${error.message || 'Internal error'}`);
   }
+};
+
+/**
+ * Parses a transcript string with timestamps [MM:SS] into segments
+ * @param {string} rawText 
+ * @returns {Array} - Array of segments
+ */
+const parseTranscriptSegments = (rawText) => {
+  if (!rawText || typeof rawText !== 'string') return [];
+
+  const lines = rawText.split('\n');
+  const parsedSegments = [];
+
+  lines.forEach(line => {
+    // Match [MM:SS] or [HH:MM:SS]
+    const match = line.match(/\[((\d{1,2}:)?\d{1,2}:\d{2})\]/);
+    if (match) {
+      const timeStr = match[1];
+      const text = line.replace(match[0], '').trim();
+      
+      const parts = timeStr.split(':').map(Number);
+      let seconds = 0;
+      if (parts.length === 3) {
+        seconds = parts[0] * 3600 + parts[1] * 60 + parts[2];
+      } else if (parts.length === 2) {
+        seconds = parts[0] * 60 + parts[1];
+      }
+      
+      parsedSegments.push({
+        startTime: seconds,
+        text,
+        endTime: seconds + 5 // Approximate end time
+      });
+    } else if (line.trim()) {
+      if (parsedSegments.length > 0) {
+        parsedSegments[parsedSegments.length - 1].text += ' ' + line.trim();
+      } else {
+        parsedSegments.push({ startTime: 0, text: line.trim(), endTime: 5 });
+      }
+    }
+  });
+
+  return parsedSegments;
 };
 
 module.exports = {
   extractVideoId,
-  fetchTranscript
+  fetchTranscript,
+  parseTranscriptSegments
 };
+

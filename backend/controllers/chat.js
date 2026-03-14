@@ -38,25 +38,37 @@ exports.askQuestion = async (req, res) => {
       content: m.role === 'assistant' ? m.mainAnswer : m.content
     }));
 
-    // Call n8n to generate chat response
+    // Call n8n to generate chat response using the new summary-doubts webhook
     let n8nResponse;
     try {
-      n8nResponse = await n8nService.resolveDoubt({
-        transcript: video.transcript.raw,
-        video_id: video._id.toString(),
-        question,
-        chat_history: chatHistory
-      });
+      // Per user request, "doubts trigger if user clicks on 'Sends'"
+      // We use the same service as summary but with mode: 'doubt'
+      n8nResponse = await n8nService.generateSummaryAndDoubts(
+        video._id.toString(),
+        video.audioUrl,
+        'doubt',
+        question
+      );
     } catch (err) {
+      console.error('[ChatDoubt] n8n error:', err.message);
       return res.status(504).json({ success: false, error: 'AI_PROCESSING_TIMEOUT', message: err.message });
     }
 
-    // If we pretend n8n returned valid JSON matching the chat schema
-    const assistantData = n8nResponse?.response || {
-      shortAnswer: 'AI could not be reached.',
-      mainAnswer: 'Please ensure the n8n webhook is active and returning the correct schema.',
-      evidence: [],
-      confidenceLevel: 'low'
+    // Map the new output format back to the chat response
+    // format: { doubts: "...", citation: { evidence: "..." } }
+    let data = Array.isArray(n8nResponse) ? n8nResponse[0] : n8nResponse;
+    if (data && data.output) {
+      data = data.output;
+    }
+
+    const assistantData = {
+      shortAnswer: 'Doubt Resolved',
+      mainAnswer: data.doubts || 'I could not find a specific answer in the transcript.',
+      evidence: data.citation ? [{
+        transcriptExcerpt: data.citation.evidence || '',
+        timestamp: { startTime: 0 } // Default since user payload is simplified
+      }] : [],
+      confidenceLevel: 'high'
     };
 
     const assistantMessage = {
@@ -70,6 +82,11 @@ exports.askQuestion = async (req, res) => {
 
     chatSession.messages.push(assistantMessage);
     await chatSession.save();
+
+    // Also update the video's cached doubts if needed
+    video.summary.doubts = assistantData.mainAnswer;
+    video.summary.doubtsCitation = data.citation;
+    await video.save();
 
     res.status(200).json({
       success: true,
