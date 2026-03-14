@@ -17,6 +17,7 @@ export default function VideoAnalysisPage() {
   const [activeTab, setActiveTab] = useState('quiz');
   const [playerInfo, setPlayerInfo] = useState({ currentTime: 0 });
   const [summaryLoading, setSummaryLoading] = useState(false);
+  const [transcriptLoading, setTranscriptLoading] = useState(false);
   
   const playerRef = useRef(null);
   const intervalRef = useRef(null);
@@ -54,6 +55,21 @@ export default function VideoAnalysisPage() {
     if (playerRef.current && playerRef.current.seekTo) {
       playerRef.current.seekTo(seconds, true);
       playerRef.current.playVideo();
+    }
+  };
+
+  const handleGenerateTranscript = async () => {
+    setTranscriptLoading(true);
+    try {
+      const res = await api.post('/personal/generate-transcript', { videoId });
+      if (res.data.success) {
+        setVideo({ ...video, transcript: res.data.transcript });
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Failed to generate transcript. Please try again.');
+    } finally {
+      setTranscriptLoading(false);
     }
   };
 
@@ -105,9 +121,11 @@ export default function VideoAnalysisPage() {
       {/* Right Column: Transcript */}
       <div>
         <TranscriptPanel 
-          segments={video.transcript.segments} 
+          segments={video.transcript?.segments || []} 
           onTimestampClick={handleTimestampClick} 
           activeTime={playerInfo.currentTime} 
+          loading={transcriptLoading}
+          onGenerate={handleGenerateTranscript}
         />
       </div>
 
@@ -176,10 +194,21 @@ function QuizGeneratorTab({ videoId, quizzes, onQuizGenerated }) {
               <div 
                 key={q._id} 
                 className="glass-card" 
-                onClick={() => router.push(`/personal/quiz/${q._id}`)}
-                style={{ padding: '1rem', cursor: 'pointer', border: '1px solid var(--border-color)', background: 'rgba(255,255,255,0.02)' }}
+                onClick={() => {
+                  if (q.isCompleted && q.completedAttemptId) {
+                    router.push(`/personal/quiz/${q._id}/results?attemptId=${q.completedAttemptId}`);
+                  } else {
+                    router.push(`/personal/quiz/${q._id}`);
+                  }
+                }}
+                style={{ padding: '1rem', cursor: 'pointer', border: `1px solid ${q.isCompleted ? 'var(--success)' : 'var(--border-color)'}`, background: q.isCompleted ? 'rgba(46, 204, 113, 0.05)' : 'rgba(255,255,255,0.02)' }}
               >
-                <h4 style={{ fontSize: '0.9rem', marginBottom: '0.4rem' }}>{q.title}</h4>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+                  <h4 style={{ fontSize: '0.9rem' }}>{q.title}</h4>
+                  {q.isCompleted && (
+                    <span className="badge badge-green" style={{ fontSize: '0.65rem', padding: '0.2rem 0.5rem' }}>Submitted ✓</span>
+                  )}
+                </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
                   <span>{q.totalMCQs} MCQs</span>
                   <span>{new Date(q.createdAt).toLocaleDateString()}</span>

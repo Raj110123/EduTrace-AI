@@ -1,9 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import api from '@/lib/api';
-import { Clock, CheckCircle, XCircle } from 'lucide-react';
+import { Clock, CheckCircle, AlertTriangle } from 'lucide-react';
+
+const QUIZ_TIME_LIMIT = 60; // seconds
 
 export default function QuizTakingPage() {
   const { quizId } = useParams();
@@ -14,12 +16,43 @@ export default function QuizTakingPage() {
   const [answers, setAnswers] = useState({});
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [timeLeft, setTimeLeft] = useState(QUIZ_TIME_LIMIT);
+  const timerRef = useRef(null);
+  const hasAutoSubmitted = useRef(false);
+
+  // Submit handler extracted so timer can call it
+  const doSubmit = useCallback(async (currentAnswers, currentAttemptId) => {
+    if (submitting || hasAutoSubmitted.current) return;
+    hasAutoSubmitted.current = true;
+    setSubmitting(true);
+    const mcqAnswers = Object.keys(currentAnswers).map(qId => ({
+      questionId: qId,
+      selectedAnswer: currentAnswers[qId]
+    }));
+
+    try {
+      const res = await api.post(`/quiz/${quizId}/submit`, { attemptId: currentAttemptId, mcqAnswers, saqAnswers: [] });
+      if (res.data.success) {
+        router.push(`/personal/quiz/${quizId}/results?attemptId=${currentAttemptId}`);
+      }
+    } catch (err) {
+      console.error(err);
+      setError('Failed to submit quiz');
+      setSubmitting(false);
+      hasAutoSubmitted.current = false;
+    }
+  }, [quizId, router, submitting]);
 
   useEffect(() => {
     const startQuiz = async () => {
       try {
         const res = await api.post(`/quiz/${quizId}/start`);
         if (res.data.success) {
+          // Check if already completed
+          if (res.data.alreadyCompleted) {
+            router.replace(`/personal/quiz/${quizId}/results?attemptId=${res.data.attemptId}`);
+            return;
+          }
           setQuiz(res.data.attempt.quiz);
           setAttemptId(res.data.attempt.attemptId);
         }
@@ -29,7 +62,31 @@ export default function QuizTakingPage() {
       }
     };
     startQuiz();
-  }, [quizId]);
+  }, [quizId, router]);
+
+  // Timer countdown
+  useEffect(() => {
+    if (!quiz || !attemptId) return;
+
+    timerRef.current = setInterval(() => {
+      setTimeLeft(prev => {
+        if (prev <= 1) {
+          clearInterval(timerRef.current);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timerRef.current);
+  }, [quiz, attemptId]);
+
+  // Auto-submit when timer hits 0
+  useEffect(() => {
+    if (timeLeft === 0 && attemptId && !hasAutoSubmitted.current) {
+      doSubmit(answers, attemptId);
+    }
+  }, [timeLeft, attemptId, answers, doSubmit]);
 
   const currentQ = quiz?.mcqs[currentIdx];
 
@@ -37,27 +94,21 @@ export default function QuizTakingPage() {
     setAnswers({ ...answers, [questionId]: label });
   };
 
-  const handleSubmit = async () => {
-    setSubmitting(true);
-    const mcqAnswers = Object.keys(answers).map(qId => ({
-      questionId: qId,
-      selectedAnswer: answers[qId]
-    }));
+  const handleSubmit = () => {
+    clearInterval(timerRef.current);
+    doSubmit(answers, attemptId);
+  };
 
-    try {
-      const res = await api.post(`/quiz/${quizId}/submit`, { attemptId, mcqAnswers, saqAnswers: [] });
-      if (res.data.success) {
-        router.push(`/personal/quiz/${quizId}/results?attemptId=${attemptId}`);
-      }
-    } catch (err) {
-      console.error(err);
-      setError('Failed to submit quiz');
-      setSubmitting(false);
-    }
+  const formatTimer = (s) => {
+    const mins = Math.floor(s / 60).toString().padStart(2, '0');
+    const secs = (s % 60).toString().padStart(2, '0');
+    return `${mins}:${secs}`;
   };
 
   if (error) return <div style={{ textAlign: 'center', marginTop: '4rem', color: 'var(--danger)' }}>{error}</div>;
   if (!quiz || !currentQ) return <div style={{ textAlign: 'center', marginTop: '4rem' }}>{quiz && !currentQ ? 'No questions found in this quiz.' : 'Loading Quiz...'}</div>;
+
+  const isLowTime = timeLeft <= 15;
 
   return (
     <div className="animate-fade-in" style={{ maxWidth: '800px', margin: '0 auto' }}>
@@ -68,9 +119,26 @@ export default function QuizTakingPage() {
           <h1 style={{ fontSize: '1.5rem', marginBottom: '0.25rem' }}>{quiz.title}</h1>
           <p style={{ color: 'var(--text-secondary)' }}>Question {currentIdx + 1} of {quiz.mcqs.length}</p>
         </div>
-        <div className="badge badge-yellow" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem', fontSize: '1rem' }}>
-          <Clock size={16} /> Optional Timer
+        <div 
+          className={`badge ${isLowTime ? 'badge-red' : 'badge-yellow'}`} 
+          style={{ 
+            display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem', fontSize: '1.1rem', fontWeight: 'bold',
+            animation: isLowTime ? 'pulse 1s infinite' : 'none'
+          }}
+        >
+          <Clock size={18} /> {formatTimer(timeLeft)}
         </div>
+      </div>
+
+      {/* Progress bar */}
+      <div style={{ width: '100%', height: '4px', background: 'var(--bg-tertiary)', borderRadius: '2px', marginBottom: '1.5rem', overflow: 'hidden' }}>
+        <div style={{ 
+          width: `${(timeLeft / QUIZ_TIME_LIMIT) * 100}%`, 
+          height: '100%', 
+          background: isLowTime ? 'var(--danger)' : 'var(--accent-primary)', 
+          borderRadius: '2px',
+          transition: 'width 1s linear'
+        }} />
       </div>
 
       {/* Question Card */}

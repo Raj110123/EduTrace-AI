@@ -1,4 +1,6 @@
-export default function TranscriptPanel({ segments, onTimestampClick, activeTime }) {
+import { FileText, Loader2 } from 'lucide-react';
+
+export default function TranscriptPanel({ segments, onTimestampClick, activeTime, loading, onGenerate }) {
   // Format seconds to [MM:SS]
   const formatTime = (seconds) => {
     const m = Math.floor(seconds / 60).toString().padStart(2, '0');
@@ -6,7 +8,28 @@ export default function TranscriptPanel({ segments, onTimestampClick, activeTime
     return `${m}:${s}`;
   };
 
-  if (!segments || segments.length === 0) return <div style={{ padding: '1rem', color: 'var(--text-secondary)' }}>No transcript available.</div>;
+  if (!segments || segments.length === 0) {
+    return (
+      <div className="glass-card" style={{ height: '400px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '1rem', padding: '2rem', textAlign: 'center' }}>
+        <div style={{ background: 'rgba(99, 102, 241, 0.1)', color: 'var(--accent-primary)', width: '48px', height: '48px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <FileText size={24} />
+        </div>
+        <div>
+          <h4 style={{ fontSize: '1rem', marginBottom: '0.5rem' }}>No transcript available</h4>
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>We need to fetch the transcript to enable interactive learning.</p>
+          <button 
+            onClick={onGenerate} 
+            disabled={loading}
+            className="btn btn-primary" 
+            style={{ width: '100%', padding: '0.6rem', fontSize: '0.9rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
+          >
+            {loading ? <Loader2 className="animate-spin" size={16} /> : null}
+            {loading ? 'Fetching...' : 'Generate Transcript'}
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="glass-card" style={{ height: '400px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.5rem', padding: '1rem' }}>

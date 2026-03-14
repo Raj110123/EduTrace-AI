@@ -2,6 +2,7 @@ const Video = require('../models/Video');
 const { fetchTranscript } = require('../services/transcriptService');
 const n8nService = require('../services/n8nService');
 const Quiz = require('../models/Quiz');
+const QuizAttempt = require('../models/QuizAttempt');
 const crypto = require('crypto');
 const { triggerQuizWebhook } = require('../services/n8nQuizService');
 
@@ -10,15 +11,42 @@ exports.getVideo = async (req, res) => {
     const video = await Video.findById(req.params.videoId);
     if (!video) return res.status(404).json({ success: false, message: 'Video not found' });
 
-    // Fetch quiz history for this video
+    // If transcript segments are empty, try to find from another video with same youtubeVideoId
+    if ((!video.transcript?.segments || video.transcript.segments.length === 0) && video.youtubeVideoId) {
+      const siblingVideo = await Video.findOne({
+        youtubeVideoId: video.youtubeVideoId,
+        _id: { $ne: video._id },
+        'transcript.segments.0': { $exists: true } // has at least one segment
+      });
+
+      if (siblingVideo) {
+        video.transcript = siblingVideo.transcript;
+        await video.save();
+        console.log(`[getVideo] Copied transcript from sibling video ${siblingVideo._id} to ${video._id}`);
+      }
+    }
+
+    // Fetch quiz history for this video, including attempt status
     const quizzes = await Quiz.find({ videoId: video._id, createdBy: req.user.id })
       .select('title createdAt difficulty totalMCQs isPublished')
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .lean();
+
+    // Attach completion status to each quiz
+    for (const q of quizzes) {
+      const completedAttempt = await QuizAttempt.findOne({
+        quizId: q._id,
+        studentId: req.user.id,
+        status: 'completed'
+      }).select('_id').lean();
+      q.isCompleted = !!completedAttempt;
+      q.completedAttemptId = completedAttempt?._id || null;
+    }
 
     res.status(200).json({ 
       success: true, 
       video,
-      quizzes // Include existing quizzes
+      quizzes
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -193,6 +221,33 @@ exports.getPersonalHistory = async (req, res) => {
       .sort({ createdAt: -1 });
     res.status(200).json({ success: true, videos });
   } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+exports.generateTranscript = async (req, res) => {
+  try {
+    const { videoId } = req.body;
+    const video = await Video.findById(videoId);
+    if (!video) return res.status(404).json({ success: false, message: 'Video not found' });
+
+    console.log(`[Transcript] Fetching transcript for video: ${videoId}, URL: ${video.youtubeUrl}`);
+    const transcriptData = await fetchTranscript(video.youtubeUrl);
+
+    video.transcript = {
+      raw: transcriptData.raw,
+      segments: transcriptData.segments
+    };
+    video.youtubeVideoId = transcriptData.videoId; // Ensure ID is sync'd
+    await video.save();
+
+    res.status(200).json({ 
+      success: true, 
+      transcript: video.transcript,
+      message: 'Transcript generated successfully.'
+    });
+  } catch (error) {
+    console.error(`[Transcript] Error: ${error.message}`);
     res.status(500).json({ success: false, message: error.message });
   }
 };

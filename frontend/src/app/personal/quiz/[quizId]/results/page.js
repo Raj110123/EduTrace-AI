@@ -1,10 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import { useParams, useSearchParams } from 'next/navigation';
-import { Trophy, ArrowLeft, Coins, Download, FileText } from 'lucide-react';
+import { Trophy, ArrowLeft, Coins, Download, FileText, ImageIcon, Loader2 } from 'lucide-react';
 import api from '@/lib/api';
+import { useCoins } from '@/context/CoinsContext';
+import html2canvas from 'html2canvas';
 
 export default function QuizResultsPage() {
   const { quizId } = useParams();
@@ -12,6 +14,9 @@ export default function QuizResultsPage() {
   const attemptId = searchParams.get('attemptId');
   const [results, setResults] = useState(null);
   const [error, setError] = useState('');
+  const [isCapturing, setIsCapturing] = useState(false);
+  const { fetchCoins } = useCoins();
+  const resultsRef = useRef(null);
 
   useEffect(() => {
     if (!attemptId) {
@@ -24,6 +29,8 @@ export default function QuizResultsPage() {
         const res = await api.get(`/quiz/${quizId}/results/${attemptId}`);
         if(res.data.success) {
            setResults(res.data.results);
+           // Update coins in Navbar
+           fetchCoins();
         }
       } catch (err) {
         console.error(err);
@@ -31,7 +38,7 @@ export default function QuizResultsPage() {
       }
     };
     fetchResults();
-  }, [quizId, attemptId]);
+  }, [quizId, attemptId, fetchCoins]);
 
   const handleDownload = async () => {
     try {
@@ -51,6 +58,42 @@ export default function QuizResultsPage() {
     }
   };
 
+  const handleVisualDownload = async () => {
+    try {
+      setIsCapturing(true);
+      const cards = document.querySelectorAll('.question-card');
+      const images = [];
+
+      for (const card of cards) {
+        const canvas = await html2canvas(card, {
+          backgroundColor: '#0a0a0c', // Match dark theme
+          scale: 2, // Higher quality
+          logging: false,
+          useCORS: true
+        });
+        images.push(canvas.toDataURL('image/jpeg', 0.8));
+      }
+
+      const res = await api.post(`/quiz/${quizId}/visual-report/${attemptId}`, { images }, {
+        responseType: 'blob'
+      });
+      
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `Visual_Report_${quizId}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      
+    } catch (err) {
+      console.error('Visual report failed:', err);
+      alert('Failed to generate visual report. Please try again.');
+    } finally {
+      setIsCapturing(false);
+    }
+  };
+
   if (error) return <div style={{ textAlign: 'center', marginTop: '4rem', color: 'var(--danger)' }}>{error}</div>;
 
   if (!results) return <div style={{ textAlign: 'center', marginTop: '4rem' }}>Loading Results...</div>;
@@ -58,13 +101,24 @@ export default function QuizResultsPage() {
   return (
     <div className="animate-fade-in" style={{ maxWidth: '800px', margin: '0 auto' }}>
       
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', gap: '1rem', flexWrap: 'wrap' }}>
         <Link href="/dashboard" className="btn btn-secondary" style={{ padding: '0.5rem 1rem', fontSize: '0.85rem' }}>
           <ArrowLeft size={16} /> Back to Dashboard
         </Link>
-        <button onClick={handleDownload} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1.25rem', fontSize: '0.85rem' }}>
-          <Download size={16} /> Download Report (PDF)
-        </button>
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <button 
+            onClick={handleVisualDownload} 
+            disabled={isCapturing}
+            className="btn btn-secondary" 
+            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1.25rem', fontSize: '0.85rem', border: '1px solid var(--border-color)' }}
+          >
+            {isCapturing ? <Loader2 className="animate-spin" size={16} /> : <ImageIcon size={16} />} 
+            Visual Report
+          </button>
+          <button onClick={handleDownload} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1.25rem', fontSize: '0.85rem' }}>
+            <Download size={16} /> Standard PDF
+          </button>
+        </div>
       </div>
 
       {/* Big Score Card */}
@@ -91,11 +145,11 @@ export default function QuizResultsPage() {
              <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Incorrect</span>
           </div>
           <div style={{ width: '1px', background: 'var(--border-color)', height: '30px' }}></div>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', color: 'var(--coin-gold)' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', color: results.coinsEarned >= 0 ? 'var(--coin-gold)' : 'var(--danger)' }}>
              <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '1.5rem', fontWeight: 'bold' }}>
-               <Coins size={20} /> +{results.coinsEarned}
+               <Coins size={20} /> {results.coinsEarned >= 0 ? `+${results.coinsEarned}` : results.coinsEarned}
              </span>
-             <span style={{ fontSize: '0.8rem' }}>Coins Earned</span>
+             <span style={{ fontSize: '0.8rem' }}>Coins</span>
           </div>
         </div>
       </div>
@@ -105,7 +159,7 @@ export default function QuizResultsPage() {
       
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
         {results.detailedResults.map((item, idx) => (
-          <div key={idx} className="glass-card" style={{ borderLeft: `4px solid ${item.isCorrect ? 'var(--success)' : 'var(--danger)'}`, position: 'relative' }}>
+          <div key={idx} className="glass-card question-card" style={{ borderLeft: `4px solid ${item.isCorrect ? 'var(--success)' : 'var(--danger)'}`, position: 'relative' }}>
             {item.topic && (
               <div style={{ position: 'absolute', top: '1rem', right: '1rem' }}>
                 <span className="badge badge-purple" style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>

@@ -14,12 +14,36 @@ exports.startQuizAttempt = async (req, res) => {
     
     if (!quiz) return res.status(404).json({ success: false, message: 'Quiz not found' });
 
-    // In a real app we might prevent multiple active attempts, but keeping it simple
-    const attempt = await QuizAttempt.create({
+    // Check if user already has a completed attempt for this quiz
+    const existingCompleted = await QuizAttempt.findOne({
       quizId,
       studentId: req.user.id,
-      classroomId: quiz.classroomId
+      status: 'completed'
     });
+
+    if (existingCompleted) {
+      return res.status(200).json({
+        success: true,
+        alreadyCompleted: true,
+        attemptId: existingCompleted._id,
+        message: 'You have already completed this quiz.'
+      });
+    }
+
+    // Check for an existing in-progress attempt (resume it instead of creating a new one)
+    let attempt = await QuizAttempt.findOne({
+      quizId,
+      studentId: req.user.id,
+      status: 'in-progress'
+    });
+
+    if (!attempt) {
+      attempt = await QuizAttempt.create({
+        quizId,
+        studentId: req.user.id,
+        classroomId: quiz.classroomId
+      });
+    }
 
     // Remove correct answers from the quiz payload sent to student
     const safeQuiz = quiz.toObject();
@@ -105,7 +129,11 @@ exports.submitQuizAttempt = async (req, res) => {
     // SAQs would be AI-graded or instructor-graded in a full app. We'll skip auto-grading for simplicity here.
 
     // Calculate Coins: +3 correct, -1 incorrect, min 0
-    let coinsEarned = Math.max(0, (correctCount * 3) - (incorrectCount * 1));
+    let coinsEarned = (correctCount * 3) - (incorrectCount * 1);
+    // User total coins can go up or down, but let's floor it at 0 overall? 
+    // Usually rewards are positive. If user fails a lot they might lose coins they already had.
+    // Requirement says "coin gained or lossed should be updated in the database".
+    
     const mcqScore = correctCount;
     const totalScore = quiz.mcqs.length > 0 ? Math.round((mcqScore / quiz.mcqs.length) * 100) : 0;
 
@@ -124,8 +152,8 @@ exports.submitQuizAttempt = async (req, res) => {
     attempt.completedAt = new Date();
     await attempt.save();
 
-    user.coins += coinsEarned;
-    user.totalCoinsEarned += coinsEarned;
+    user.coins = Math.max(0, user.coins + coinsEarned);
+    user.totalCoinsEarned = Math.max(0, user.totalCoinsEarned + coinsEarned);
     user.quizzesTaken += 1;
     // rough running average update
     user.averageScore = ((user.averageScore * (user.quizzesTaken - 1)) + totalScore) / user.quizzesTaken;
@@ -277,6 +305,66 @@ exports.downloadQuizPDF = async (req, res) => {
 
   } catch (error) {
     console.error('[PDF Gen] Error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Generate PDF from screenshots
+// @route   POST /api/quiz/:quizId/report-pdf/:attemptId
+// @access  Private
+exports.generateQuizImagePDF = async (req, res) => {
+  try {
+    const { attemptId } = req.params;
+    const { images } = req.body; // Array of base64 images
+
+    if (!images || !Array.isArray(images)) {
+      return res.status(400).json({ success: false, message: 'No images provided' });
+    }
+
+    const attempt = await QuizAttempt.findById(attemptId).populate('quizId');
+    if (!attempt) return res.status(404).json({ success: false, message: 'Attempt not found' });
+
+    const quiz = attempt.quizId;
+    const user = await User.findById(attempt.studentId);
+
+    const doc = new PDFDocument({ margin: 50 });
+    const filename = `Visual_Report_${attemptId}.pdf`;
+
+    res.setHeader('Content-disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-type', 'application/pdf');
+
+    doc.pipe(res);
+
+    // Title Page
+    doc.fontSize(24).font('Helvetica-Bold').text('Visual Assessment Report', { align: 'center' });
+    doc.moveDown();
+    
+    doc.fontSize(12).font('Helvetica');
+    doc.text(`Student: ${user.name}`);
+    doc.text(`Email: ${user.email}`);
+    doc.text(`Quiz: ${quiz.title}`);
+    doc.text(`Score: ${attempt.totalScore}%`);
+    doc.text(`Date: ${new Date(attempt.completedAt).toLocaleString()}`);
+    doc.moveDown(2);
+
+    // Embed Images
+    for (const base64Data of images) {
+      const imgBuffer = Buffer.from(base64Data.split(',')[1], 'base64');
+      
+      // Page break if not enough space (keeping it simple: one image per page or fit)
+      // For now, let's do one per page if they are large, or fit multiple
+      doc.addPage();
+      doc.image(imgBuffer, {
+        fit: [500, 700],
+        align: 'center',
+        valign: 'center'
+      });
+    }
+
+    doc.end();
+
+  } catch (error) {
+    console.error('[Image PDF Gen] Error:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
