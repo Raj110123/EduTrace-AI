@@ -85,13 +85,13 @@ exports.askQuestion = async (req, res) => {
     } catch (err) {
       console.error('[ChatDoubt] n8n error:', err.message);
       console.error('[ChatDoubt] Full error:', err);
-      return res.status(504).json({ 
+      const statusCode = err.code === 'ECONNABORTED' || err.code === 'ETIMEDOUT' ? 504 : 502;
+      return res.status(statusCode).json({ 
         success: false, 
-        error: 'AI_PROCESSING_TIMEOUT', 
+        error: statusCode === 504 ? 'AI_PROCESSING_TIMEOUT' : 'AI_SERVICE_ERROR', 
         message: 'AI service is temporarily unavailable. Please try again in a few moments.' 
       });
     }
-
     // Map the new output format back to the chat response
     // format: { doubts: "...", citation: { evidence: "..." } }
     let data = Array.isArray(n8nResponse) ? n8nResponse[0] : n8nResponse;
