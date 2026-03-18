@@ -134,7 +134,7 @@ export default function VideoAnalysisPage() {
           )}
           {activeTab === 'chat' && (
             <div className="glass-panel" style={{ padding: '0.5rem' }}>
-              <ChatInterface videoId={video.youtubeVideoId} />
+              <ChatInterface videoId={videoId} />
             </div>
           )}
         </div>

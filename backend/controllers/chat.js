@@ -12,6 +12,8 @@ exports.askQuestion = async (req, res) => {
     const { question, sessionId } = req.body;
 
     console.log(`[Chat] Request received: videoId=${videoId}, question="${question}"`);
+    console.log(`[Chat] Request origin: ${req.headers.origin || 'unknown'}`);
+    console.log(`[Chat] User-Agent: ${req.headers['user-agent'] || 'unknown'}`);
 
     // First, find the video by youtubeVideoId or ObjectId
     let video;
@@ -29,7 +31,7 @@ exports.askQuestion = async (req, res) => {
     
     if (!video) {
       console.log(`[Chat] Video not found for videoId: ${videoId}`);
-      return res.status(404).json({ success: false, message: 'Video not found' });
+      return res.status(404).json({ success: false, message: 'Video not found. Please ensure the video has been processed.' });
     }
 
     console.log(`[Chat] Video found: ${video._id}, has transcript: ${!!video.transcript}`);
@@ -159,7 +161,8 @@ exports.askQuestion = async (req, res) => {
     });
 
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    console.error('[Chat] Error in askQuestion:', error);
+    res.status(500).json({ success: false, message: error.message || 'Internal server error' });
   }
 };
 
