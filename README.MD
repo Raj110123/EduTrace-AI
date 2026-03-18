@@ -2,7 +2,7 @@
 
 ## Deployed Link: [View Project](https://edutrace-ai.onrender.com/)
 
-![Hero Image](./frontend/public/hero.png){ width="400" height="200" }
+<img src="./frontend/public/hero.png" alt="Hero Image" width="400" height="200">
 
 > **Transforming YouTube videos into interactive learning experiences.**
 
