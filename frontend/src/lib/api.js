@@ -8,6 +8,7 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  withCredentials: true, // Important for CORS with credentials
 });
 
 api.interceptors.request.use(
@@ -20,6 +21,18 @@ api.interceptors.request.use(
     return config;
   },
   (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// Add response interceptor to handle network errors
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.code === 'NETWORK_ERROR' || error.message === 'Network Error') {
+      console.error('Network Error - Check if backend is running and CORS is configured correctly');
+      console.error('Current API URL:', API_URL);
+    }
     return Promise.reject(error);
   }
 );
