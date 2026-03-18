@@ -101,38 +101,3 @@ EduTrace AI is a next-generation educational platform that leverages Artificial 
 | `IMAGEKIT_PUBLIC_KEY` | ImageKit public key for asset storage |
 | `IMAGEKIT_PRIVATE_KEY` | ImageKit private key |
 | `IMAGEKIT_ENDPOINT` | ImageKit endpoint URL |
-
----
-
-## 📐 Architecture
-
-EduTrace AI follows a modular architecture:
-- **Client**: Next.js single-page application handling the UI/UX.
-- **API Server**: Node.js/Express server managing authentication, data storage, and business logic.
-- **AI Engine**: n8n workflows triggered via webhooks for heavy-lifting tasks like transcription, quiz generation, and chat.
-
----
-
-## 🤝 Contributing
-
-Contributions are what make the open source community such an amazing place to learn, inspire, and create. Any contributions you make are **greatly appreciated**.
-
-1. Fork the Project
-2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the Branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
----
-
-## 📄 License
-
-Distributed under the MIT License. See `LICENSE` for more information.
-
----
-
-## 📬 Contact
-
-Project Link: [https://github.com/Hackverse2k26/edutech-we08_ai_bytes](https://github.com/Hackverse2k26/edutech-we08_ai_bytes)
-
-<p align="center">Made with ❤️ by the EduTrace AI Team</p>
