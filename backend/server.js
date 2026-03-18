@@ -27,7 +27,7 @@ const corsOptions = {
       'https://localhost:3001',
       'http://127.0.0.1:3000',
       'https://127.0.0.1:3000',
-      // Add your Render frontend URL here when deployed
+      'https://edutrace-ai.onrender.com',
       process.env.FRONTEND_URL
     ].filter(Boolean);
     
