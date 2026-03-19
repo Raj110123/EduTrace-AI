@@ -1,5 +1,9 @@
 const axios = require('axios');
 
+// In-memory cache for transcripts (Map: videoId -> transcript data)
+const transcriptCache = new Map();
+const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+
 /**
  * Extracts video ID from a YouTube URL
  * @param {string} url - YouTube URL
@@ -36,6 +40,37 @@ const extractVideoId = (url) => {
 };
 
 /**
+ * Checks if cached transcript exists and is still valid
+ * @param {string} videoId - YouTube video ID
+ * @returns {Object|null} - Cached transcript or null
+ */
+const getCachedTranscript = (videoId) => {
+  const cached = transcriptCache.get(videoId);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    console.log(`[TranscriptService] Using cached transcript for videoId: ${videoId}`);
+    return cached.data;
+  }
+  if (cached) {
+    console.log(`[TranscriptService] Cache expired for videoId: ${videoId}`);
+    transcriptCache.delete(videoId);
+  }
+  return null;
+};
+
+/**
+ * Stores transcript in cache
+ * @param {string} videoId - YouTube video ID
+ * @param {Object} transcriptData - Transcript data to cache
+ */
+const setCachedTranscript = (videoId, transcriptData) => {
+  console.log(`[TranscriptService] Caching transcript for videoId: ${videoId}`);
+  transcriptCache.set(videoId, {
+    data: transcriptData,
+    timestamp: Date.now()
+  });
+};
+
+/**
  * Fetches the transcript for a given YouTube video
  * @param {string} url - YouTube video URL
  * @returns {Promise<Object>} - Transcript segments and raw text
@@ -45,6 +80,12 @@ const fetchTranscript = async (url) => {
     const videoId = extractVideoId(url);
     if (!videoId) {
       throw new Error(`Invalid YouTube URL: ${url}`);
+    }
+
+    // Check cache first
+    const cachedTranscript = getCachedTranscript(videoId);
+    if (cachedTranscript) {
+      return cachedTranscript;
     }
 
     console.log(`[TranscriptService] Fetching transcript for videoId: ${videoId} using SerpAPI`);
@@ -65,7 +106,7 @@ const fetchTranscript = async (url) => {
           v: videoId,
           api_key: serpApiKey
         },
-        timeout: 30000
+        timeout: 15000 // Reduced from 30s to 15s
       }),
       axios.get(serpUrl, {
         params: {
@@ -73,7 +114,7 @@ const fetchTranscript = async (url) => {
           v: videoId,
           api_key: serpApiKey
         },
-        timeout: 30000
+        timeout: 15000 // Reduced from 30s to 15s
       }).catch(() => ({ data: null })) // Ignore video details error
     ]);
 
@@ -154,12 +195,17 @@ const fetchTranscript = async (url) => {
       console.log('[TranscriptService] Using first segment as title:', videoTitle);
     }
 
-    return {
+    const transcriptData = {
       videoId,
       title: videoTitle || 'YouTube Video',
       raw: rawText.trim(),
       segments
     };
+
+    // Cache the transcript before returning
+    setCachedTranscript(videoId, transcriptData);
+    
+    return transcriptData;
   } catch (error) {
     console.error(`[TranscriptService] Error fetching transcript:`, error);
     throw new Error(`Could not fetch video transcript: ${error.message || 'Internal error'}`);
@@ -212,6 +258,9 @@ const parseTranscriptSegments = (rawText) => {
 module.exports = {
   extractVideoId,
   fetchTranscript,
-  parseTranscriptSegments
+  parseTranscriptSegments,
+  getCachedTranscript,
+  setCachedTranscript,
+  clearTranscriptCache: () => transcriptCache.clear()
 };
 

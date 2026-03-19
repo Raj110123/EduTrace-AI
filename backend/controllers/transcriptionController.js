@@ -1,6 +1,7 @@
 const { fetchTranscript } = require('../services/transcriptService');
 const { sendTranscriptToN8n } = require('../services/n8nTranscriptionService');
 const PDFDocument = require('pdfkit');
+const path = require('path');
 
 /**
  * Handles YouTube URL submission for advanced transcription
@@ -71,6 +72,21 @@ exports.downloadTranscriptPDF = async (req, res) => {
         }
 
         const doc = new PDFDocument({ margin: 50 });
+        
+        // Register Noto Sans Devanagari font for Hindi support
+        const fontPath = path.join(__dirname, '../node_modules/@fontsource/noto-sans-devanagari/files/noto-sans-devanagari-devanagari-400-normal.woff');
+        const fontBoldPath = path.join(__dirname, '../node_modules/@fontsource/noto-sans-devanagari/files/noto-sans-devanagari-devanagari-700-normal.woff');
+        
+        let hindiFontRegistered = false;
+        try {
+            doc.registerFont('NotoSansDevanagari', fontPath);
+            doc.registerFont('NotoSansDevanagari-Bold', fontBoldPath);
+            hindiFontRegistered = true;
+            console.log('Hindi fonts registered successfully');
+        } catch (fontError) {
+            console.warn('Font registration failed, falling back to default fonts:', fontError.message);
+        }
+        
         // Sanitize filename - format: Title_YouTube_Transcript.pdf
         const filename = `${(title || 'Video').replace(/[^a-z0-9\s]/gi, '_')}_YouTube_Transcript.pdf`;
 
@@ -97,6 +113,11 @@ exports.downloadTranscriptPDF = async (req, res) => {
             const m = Math.floor(seconds / 60).toString().padStart(2, '0');
             const s = Math.floor(seconds % 60).toString().padStart(2, '0');
             return `${m}:${s}`;
+        };
+
+        // Helper function to detect if text contains Hindi characters
+        const isHindiText = (text) => {
+            return /[\u0900-\u097F]/.test(text);
         };
 
         // Transcript Content
@@ -139,8 +160,21 @@ exports.downloadTranscriptPDF = async (req, res) => {
                 doc.moveDown(2);
             }
 
+            // Use appropriate font based on content
+            const segmentText = segment.text || '';
+            const containsHindi = isHindiText(segmentText);
+            
+            // Always use Helvetica for timestamps to ensure proper English display
             doc.fontSize(10).font('Helvetica-Bold').fillColor('#6366f1').text(`[${formatTime(segment.startTime || 0)}] `, { continued: true });
-            doc.font('Helvetica').fillColor('#374151').text(segment.text || '');
+            
+            if (containsHindi && hindiFontRegistered) {
+                // Use Hindi font only for Hindi text content
+                doc.font('NotoSansDevanagari').fillColor('#374151').text(segmentText);
+            } else {
+                // Use default font for English text or fallback if Hindi font not available
+                doc.font('Helvetica').fillColor('#374151').text(segmentText);
+            }
+            
             doc.moveDown(0.5);
         });
 
