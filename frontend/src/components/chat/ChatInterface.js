@@ -271,7 +271,6 @@ export default function ChatInterface({ videoId }) {
                                                                         target="_blank"
                                                                         rel="noopener noreferrer"
                                                                         style={{ color: 'var(--accent-primary)', textDecoration: 'underline', fontSize: '0.75rem' }}
-                                                                        onClick={() => {}}
                                                                     >
                                                                         {ts.display}
                                                                     </a>
