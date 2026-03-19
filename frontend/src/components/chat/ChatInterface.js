@@ -10,11 +10,28 @@ export default function ChatInterface({ videoId }) {
     const [loading, setLoading] = useState(false);
     const [historyLoading, setHistoryLoading] = useState(true);
     const [sessionId, setSessionId] = useState(null);
+    const [youtubeVideoId, setYoutubeVideoId] = useState(null);
     const messagesEndRef = useRef(null);
 
     const convertTimestampToSeconds = (timestamp) => {
+        if (!timestamp || typeof timestamp !== 'string') return 0;
+        
         const parts = timestamp.split(':');
-        return parseInt(parts[0]) * 3600 + parseInt(parts[1]) * 60 + parseInt(parts[2]);
+        if (parts.length === 3) {
+            // HH:MM:SS format
+            const hours = parseInt(parts[0]) || 0;
+            const minutes = parseInt(parts[1]) || 0;
+            const seconds = parseInt(parts[2]) || 0;
+            return hours * 3600 + minutes * 60 + seconds;
+        } else if (parts.length === 2) {
+            // MM:SS format (from n8n)
+            const minutes = parseInt(parts[0]) || 0;
+            const seconds = parseInt(parts[1]) || 0;
+            return minutes * 60 + seconds;
+        } else {
+            // Invalid format
+            return 0;
+        }
     };
 
     const extractFirstTimestamp = (timestampRange) => {
@@ -27,14 +44,19 @@ export default function ChatInterface({ videoId }) {
 
     const extractAllTimestamps = (timestampRange) => {
         if (!timestampRange) return [];
+        console.log('Raw timestampRange from n8n:', timestampRange);
+        
         // Split by comma to get multiple ranges
         const ranges = timestampRange.split(',').map(range => range.trim());
         // Extract start times from each range
         return ranges.map(range => {
             const startTime = range.split('-')[0].trim();
+            const seconds = convertTimestampToSeconds(startTime);
+            console.log('Processing timestamp:', { range, startTime, seconds });
+            
             return {
                 display: startTime,
-                seconds: convertTimestampToSeconds(startTime)
+                seconds: seconds
             };
         });
     };
@@ -50,6 +72,19 @@ export default function ChatInterface({ videoId }) {
             setMessages([]);
             setSessionId(null);
             setHistoryLoading(false);
+            
+            // Fetch video data to get YouTube video ID
+            const fetchVideoData = async () => {
+                try {
+                    const response = await api.get(`/personal/video/${videoId}`);
+                    if (response.data.success && response.data.video) {
+                        setYoutubeVideoId(response.data.video.youtubeVideoId);
+                    }
+                } catch (error) {
+                    console.error('Failed to fetch video data:', error);
+                }
+            };
+            fetchVideoData();
         }
     }, [videoId]);
 
@@ -224,11 +259,11 @@ export default function ChatInterface({ videoId }) {
                                                             {extractAllTimestamps(msg.timestampRange).map((ts, tsIdx) => (
                                                                 <div key={tsIdx} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.25rem' }}>
                                                                     <a
-                                                                        href={`https://www.youtube.com/watch?v=${videoId}&t=${ts.seconds}s`}
+                                                                        href={`https://www.youtube.com/watch?v=${youtubeVideoId}&t=${ts.seconds}s`}
                                                                         target="_blank"
                                                                         rel="noopener noreferrer"
                                                                         style={{ color: 'var(--accent-primary)', textDecoration: 'underline', fontSize: '0.75rem' }}
-                                                                        onClick={() => console.log('Clicked timestamp:', { videoId, timestamp: ts.display, seconds: ts.seconds, url: `https://www.youtube.com/watch?v=${videoId}&t=${ts.seconds}s` })}
+                                                                        onClick={() => console.log('Clicked timestamp:', { videoId, youtubeVideoId, timestamp: ts.display, seconds: ts.seconds, url: `https://www.youtube.com/watch?v=${youtubeVideoId}&t=${ts.seconds}s` })}
                                                                     >
                                                                         {ts.display}
                                                                     </a>

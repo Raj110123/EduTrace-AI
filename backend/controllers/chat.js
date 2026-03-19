@@ -128,9 +128,24 @@ exports.askQuestion = async (req, res) => {
 
     // Helper function to convert timestamp to seconds
     function convertTimestampToSeconds(timestamp) {
-      if (!timestamp) return 0;
+      if (!timestamp || typeof timestamp !== 'string') return 0;
+      
       const parts = timestamp.split(':');
-      return parseInt(parts[0]) * 3600 + parseInt(parts[1]) * 60 + parseInt(parts[2]);
+      if (parts.length === 3) {
+        // HH:MM:SS format
+        const hours = parseInt(parts[0]) || 0;
+        const minutes = parseInt(parts[1]) || 0;
+        const seconds = parseInt(parts[2]) || 0;
+        return hours * 3600 + minutes * 60 + seconds;
+      } else if (parts.length === 2) {
+        // MM:SS format (from n8n)
+        const minutes = parseInt(parts[0]) || 0;
+        const seconds = parseInt(parts[1]) || 0;
+        return minutes * 60 + seconds;
+      } else {
+        // Invalid format
+        return 0;
+      }
     }
 
     const assistantMessage = {
