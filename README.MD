@@ -1,4 +1,4 @@
-# 🚀 Build-it ON - Elevating Learning with AI Precision
+# 🎓 EduTrace AI - Elevating Learning with AI Precision
 
 ## Deployed Link: [View Project](https://edutrace-ai.onrender.com/)
 
@@ -6,7 +6,7 @@
 
 > **Transforming YouTube videos into interactive learning experiences.**
 
-Build-it ON is a next-generation educational platform that leverages Artificial Intelligence to bridge the gap between passive video watching and active learning. By processing YouTube content, it generates comprehensive transcripts, summarizes complex topics, creates interactive MCQs, and provides an AI-driven doubt resolver to ensure every student masters their subjects.
+EduTrace AI is a next-generation educational platform that leverages Artificial Intelligence to bridge the gap between passive video watching and active learning. By processing YouTube content, it generates comprehensive transcripts, summarizes complex topics, creates interactive MCQs, and provides an AI-driven doubt resolver to ensure every student masters their subjects.
 
 ---
 
@@ -113,7 +113,7 @@ Build-it ON is a next-generation educational platform that leverages Artificial 
 1. **Clone the Repository**
    ```bash
    git clone https://github.com/Hackverse2k26/edutech-we08_ai_bytes.git
-   cd Build-it-ON
+   cd EduTrace-AI
    ```
 
 2. **Backend Setup**
@@ -173,4 +173,4 @@ Build-it ON is a next-generation educational platform that leverages Artificial 
 
 ---
 
-> **🚀 Build-it ON - Making education accessible, interactive, and intelligent.**
+> **🎓 EduTrace AI - Making education accessible, interactive, and intelligent.**
