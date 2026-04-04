@@ -302,7 +302,7 @@ function SummaryTab({ video, loading, onGenerate }) {
     });
   };
 
-  if (!summary || (!summary.shortSummary && !summary.doubts)) {
+  if (!summary || !summary.shortSummary) {
     return (
       <div className="ai-hub-container">
         <div style={{ color: 'var(--cyan)', marginBottom: '1rem' }}>
@@ -336,21 +336,37 @@ function SummaryTab({ video, loading, onGenerate }) {
             {renderFormattedText(summary.shortSummary)}
           </div>
           
+          <div style={{ marginTop: '2.5rem', display: 'flex', gap: '1rem', alignItems: 'center' }}>
+            <button 
+              onClick={() => onGenerate('summary')} 
+              className="btn btn-secondary" 
+              disabled={loading}
+              style={{ padding: '0.6rem 1.25rem', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+            >
+              {loading ? (
+                <span style={{ width: '14px', height: '14px', border: '2px solid currentColor', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></span>
+              ) : (
+                <Sparkles size={14} />
+              )}
+              {loading ? 'Compiling matrix...' : 'Regenerate Summary'}
+            </button>
+          </div>
+          
           {summary.summaryCitation && (
             <div style={{ 
-              marginTop: '2rem', 
-              padding: '1rem', 
+              marginTop: '2.5rem', 
+              padding: '1.25rem', 
               background: 'var(--surface-2)', 
-              borderLeft: '2px solid var(--stroke-3)',
+              borderLeft: '2px solid var(--cyan)',
               display: 'flex',
               flexDirection: 'column',
-              gap: '0.5rem'
+              gap: '0.75rem'
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontFamily: 'var(--font-data)', fontSize: '10px', textTransform: 'uppercase', color: 'var(--cyan)' }}>
                 <Sparkles size={12} /> Root Evidence
               </div>
               {summary.summaryCitation.evidence && (
-                <p style={{ fontFamily: 'var(--font-editorial)', fontSize: '16px', fontStyle: 'italic', color: 'var(--text-secondary)' }}>
+                <p style={{ fontFamily: 'var(--font-editorial)', fontSize: '17px', fontStyle: 'italic', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
                   "{summary.summaryCitation.evidence}"
                 </p>
               )}

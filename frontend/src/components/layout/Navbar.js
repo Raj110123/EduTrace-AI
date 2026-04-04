@@ -35,9 +35,7 @@ export default function Navbar() {
               <Link href="/store" className={`nav-item ${pathname === '/store' ? 'active' : ''}`}>
                 Store
               </Link>
-              <Link href="http://localhost:3030/dashboard" target="_blank" className="nav-item">
-                Interview Assessment
-              </Link>
+              
 
               <div className="badge badge-amber">
                 <span className="glow-dot amber"></span>

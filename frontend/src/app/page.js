@@ -47,12 +47,6 @@ export default function HomePage() {
       title: 'Deep Analytics',
       desc: 'Track accuracy trends, identify weak concepts, and surface re-watch timestamps for targeted remediation.',
     },
-    {
-      icon: <Sparkles size={22} />,
-      color: 'rose',
-      title: 'Interview Assessment',
-      desc: 'AI-driven mock interview sessions with feedback powered by n8n workflows and large language model evaluation.',
-    },
   ];
 
   const steps = [
@@ -251,7 +245,7 @@ export default function HomePage() {
       {/* ── Footer ─────────────────────────────────────────────────────────── */}
       <footer className="home-footer">
         <span className="brand-name" style={{ fontSize: '14px' }}>EduTrace AI</span>
-        <span className="t-small">© 2025 · Built with Gemini AI &amp; n8n · All rights reserved.</span>
+        <span className="t-small">© 2025 · Built with Mistral &amp; n8n workflows · All rights reserved.</span>
       </footer>
     </div>
   );
