@@ -78,7 +78,7 @@ exports.generateSummaryAndDoubts = async (sessionId, transcript, mode = 'summary
         await new Promise(resolve => setTimeout(resolve, 2000)); // wait 2s between retries
       }
 
-      const response = await axios.post('https://nikunjn8n.up.railway.app/webhook/summaries-and-doubt', payload, {
+      const response = await axios.post('https://nikunjn8n.up.railway.app/webhook/summary-and-doubts', payload, {
         timeout: 300000, // 5 minutes
         headers: {
           'Content-Type': 'application/json'
