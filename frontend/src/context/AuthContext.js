@@ -30,7 +30,7 @@ export const AuthProvider = ({ children }) => {
             handleClearAuth();
           }
         } catch (error) {
-          console.error("Auth check failed:", error);
+          console.log("Auth check failed:", error?.response?.data?.message || error.message);
           handleClearAuth();
         }
       }
@@ -53,7 +53,7 @@ export const AuthProvider = ({ children }) => {
         return true;
       }
     } catch (error) {
-      console.error(error);
+      console.log('Login error:', error?.response?.data?.message || error.message);
       throw error.response?.data?.message || 'Login failed';
     }
   };
@@ -70,7 +70,7 @@ export const AuthProvider = ({ children }) => {
         return true;
       }
     } catch (error) {
-      console.error(error);
+      console.log('Signup error:', error?.response?.data?.message || error.message);
       throw error.response?.data?.message || 'Signup failed';
     }
   };

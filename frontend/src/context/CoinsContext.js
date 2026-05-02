@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import api from '@/lib/api';
 import { useAuth } from './AuthContext';
 
@@ -18,20 +18,20 @@ export const CoinsProvider = ({ children }) => {
     }
   }, [user]);
 
-  const fetchCoins = async () => {
+  const fetchCoins = useCallback(async () => {
     try {
       const res = await api.get('/coins/balance');
       if (res.data.success) {
         setCoins(res.data.coins);
       }
     } catch (error) {
-      console.error("Failed to fetch coins", error);
+      console.log("Failed to fetch coins:", error?.response?.data?.message || error.message);
     }
-  };
+  }, []);
 
-  const updateCoins = (newAmount) => {
+  const updateCoins = useCallback((newAmount) => {
     setCoins(newAmount);
-  };
+  }, []);
 
   return (
     <CoinsContext.Provider value={{ coins, updateCoins, fetchCoins }}>

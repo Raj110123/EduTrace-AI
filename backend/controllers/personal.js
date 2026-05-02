@@ -143,7 +143,14 @@ exports.generateQuiz = async (req, res) => {
       console.log(`[Personal Quiz] Triggering webhook for video: ${videoId}`);
       n8nResponse = await triggerQuizWebhook(sessionId, video.youtubeVideoId);
     } catch (err) {
-      return res.status(504).json({ success: false, error: 'AI_PROCESSING_TIMEOUT', message: err.message });
+      const statusCode = err.response?.status || (err.code === 'ECONNABORTED' ? 504 : 500);
+      const isTimeout = statusCode === 504;
+      return res.status(statusCode).json({ 
+        success: false, 
+        error: isTimeout ? 'AI_PROCESSING_TIMEOUT' : 'AI_PROCESSING_ERROR', 
+        message: err.message,
+        details: err.response?.data || 'No additional details'
+      });
     }
 
     // 5. Extract questions (highly flexible parsing)

@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import api from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 
-const QUIZ_TIME_LIMIT = 300; // 5 minutes standard
+const QUIZ_TIME_LIMIT = 120; // 2 minute standard
 
 const extractStartTime = (timestamp) => {
   if (!timestamp) return '';
